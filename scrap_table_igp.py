@@ -32,13 +32,15 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'No se encontraron datos sísmicos'})
             }
 
+        # Ordenar por fecha (los más recientes primero)
+        # La API puede devolver los datos en orden cronológico, así que invertimos
+        data = list(reversed(data))
+
     except Exception as e:
         return {
             'statusCode': 500,
             'body': json.dumps({'error': f'Error en la solicitud: {str(e)}'})
-        }
-
-    # Procesar los datos
+        }    # Procesar los datos
     rows = []
     for item in data[:10]:  # Solo tomar los primeros 10 elementos
         row_data = {
