@@ -1,16 +1,17 @@
 import requests
-from bs4 import BeautifulSoup
 import boto3
 import uuid
 import json
 
 def lambda_handler(event, context):
-    # URL de la página web que contiene la tabla
-    url = "https://ultimosismo.igp.gob.pe/ultimo-sismo/sismos-reportados"
+    # URL de la API del IGP que devuelve los datos en formato JSON
+    # Esta es la API interna que usa la página web
+    url = "https://www.igp.gob.pe/api-ultima-sismos/sismos-reportados"
 
-    # Realizar la solicitud HTTP a la página web con headers
+    # Realizar la solicitud HTTP a la API
     headers_request = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
     }
 
     try:
@@ -18,45 +19,38 @@ def lambda_handler(event, context):
         if response.status_code != 200:
             return {
                 'statusCode': response.status_code,
-                'body': json.dumps({'error': 'Error al acceder a la página web'})
+                'body': json.dumps({'error': f'Error al acceder a la API: {response.status_code}'})
             }
+
+        # Parsear la respuesta JSON
+        data = response.json()
+
+        # Verificar si hay datos
+        if not data or len(data) == 0:
+            return {
+                'statusCode': 404,
+                'body': json.dumps({'error': 'No se encontraron datos sísmicos'})
+            }
+
     except Exception as e:
         return {
             'statusCode': 500,
             'body': json.dumps({'error': f'Error en la solicitud: {str(e)}'})
         }
 
-    # Parsear el contenido HTML de la página web
-    soup = BeautifulSoup(response.content, 'html.parser')
-
-    # Encontrar la tabla en el HTML - buscar por clase o estructura
-    table = soup.find('table', class_='table')
-    if not table:
-        # Intentar buscar cualquier tabla
-        table = soup.find('table')
-
-    if not table:
-        return {
-            'statusCode': 404,
-            'body': json.dumps({
-                'error': 'No se encontró la tabla en la página web',
-                'html_preview': str(soup)[:500]  # Ver parte del HTML para debug
-            })
-        }
-
-    # Extraer los encabezados de la tabla
-    headers = [header.text.strip() for header in table.find_all('th')]
-
-    # Extraer las filas de la tabla
+    # Procesar los datos del JSON
     rows = []
-    for row in table.find_all('tr')[1:]:  # Omitir el encabezado
-        cells = row.find_all('td')
-        if len(cells) > 0:  # Verificar que la fila tenga celdas
-            row_data = {}
-            for i, cell in enumerate(cells):
-                if i < len(headers):
-                    row_data[headers[i]] = cell.text.strip()
-            rows.append(row_data)
+    for item in data:
+        row_data = {
+            'Reporte sísmico': item.get('codigo', ''),
+            'Referencia': item.get('referencia', ''),
+            'Fecha y hora (Local)': item.get('fecha_hora_local', ''),
+            'Magnitud': str(item.get('magnitud', '')),
+            'Profundidad': str(item.get('profundidad', '')),
+            'Latitud': str(item.get('latitud', '')),
+            'Longitud': str(item.get('longitud', ''))
+        }
+        rows.append(row_data)
 
     # Guardar los datos en DynamoDB
     dynamodb = boto3.resource('dynamodb')
