@@ -40,7 +40,7 @@ def lambda_handler(event, context):
 
     # Procesar los datos
     rows = []
-    for item in data:
+    for item in data[:10]:  # Solo tomar los primeros 10 elementos
         row_data = {
             'Reporte_sismico': item.get('codigo', '') or item.get('id', ''),
             'Referencia': item.get('referencia', ''),
