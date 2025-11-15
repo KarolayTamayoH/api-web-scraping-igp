@@ -1,14 +1,14 @@
 import requests
+from bs4 import BeautifulSoup
 import boto3
 import uuid
 import json
 
-def lambda_handler(event, context):
-    # URL de la API del IGP que devuelve los datos en formato JSON
-    # Esta es la API interna que usa la página web
-    url = "https://www.igp.gob.pe/api-ultima-sismos/sismos-reportados"
 
-    # Realizar la solicitud HTTP a la API
+def lambda_handler(event, context):
+    # URL de la API real del IGP
+    url = "https://ultimosismo.igp.gob.pe/api/ultimo-sismo/ajaxb/2025"
+
     headers_request = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'application/json'
@@ -38,13 +38,13 @@ def lambda_handler(event, context):
             'body': json.dumps({'error': f'Error en la solicitud: {str(e)}'})
         }
 
-    # Procesar los datos del JSON
+    # Procesar los datos
     rows = []
     for item in data:
         row_data = {
-            'Reporte sísmico': item.get('codigo', ''),
+            'Reporte_sismico': item.get('codigo', '') or item.get('id', ''),
             'Referencia': item.get('referencia', ''),
-            'Fecha y hora (Local)': item.get('fecha_hora_local', ''),
+            'Fecha_hora_local': item.get('fecha_hora_local', '') or item.get('fecha_local', ''),
             'Magnitud': str(item.get('magnitud', '')),
             'Profundidad': str(item.get('profundidad', '')),
             'Latitud': str(item.get('latitud', '')),
