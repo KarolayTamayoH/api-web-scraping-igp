@@ -8,23 +8,40 @@ def lambda_handler(event, context):
     # URL de la página web que contiene la tabla
     url = "https://ultimosismo.igp.gob.pe/ultimo-sismo/sismos-reportados"
 
-    # Realizar la solicitud HTTP a la página web
-    response = requests.get(url)
-    if response.status_code != 200:
+    # Realizar la solicitud HTTP a la página web con headers
+    headers_request = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
+    try:
+        response = requests.get(url, headers=headers_request, timeout=20)
+        if response.status_code != 200:
+            return {
+                'statusCode': response.status_code,
+                'body': json.dumps({'error': 'Error al acceder a la página web'})
+            }
+    except Exception as e:
         return {
-            'statusCode': response.status_code,
-            'body': 'Error al acceder a la página web'
+            'statusCode': 500,
+            'body': json.dumps({'error': f'Error en la solicitud: {str(e)}'})
         }
 
     # Parsear el contenido HTML de la página web
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    # Encontrar la tabla en el HTML
-    table = soup.find('table')
+    # Encontrar la tabla en el HTML - buscar por clase o estructura
+    table = soup.find('table', class_='table')
+    if not table:
+        # Intentar buscar cualquier tabla
+        table = soup.find('table')
+
     if not table:
         return {
             'statusCode': 404,
-            'body': 'No se encontró la tabla en la página web'
+            'body': json.dumps({
+                'error': 'No se encontró la tabla en la página web',
+                'html_preview': str(soup)[:500]  # Ver parte del HTML para debug
+            })
         }
 
     # Extraer los encabezados de la tabla
